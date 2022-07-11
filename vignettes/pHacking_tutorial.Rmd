@@ -1,0 +1,72 @@
+---
+title: "pHacking_tutorial"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{pHacking_tutorial}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(easypackages)
+packages <- c('tidyverse', 'MASS')
+libraries(packages)
+```
+
+
+```{r echo=F}
+##Example: Consider a developmental researcher with an archival data base containing data for several dependent and independent variables. For example,
+##data on shyness, anxiety, self-reported stress, happiness exists for children. Among these data, the researcher can group the data in several ways:
+#sex, race, SES, attachment style, etc. Thus, there is an ample opportunity to conduct pairwise comparisons in an uncontrolled manner.
+
+#Factors to simulate:
+##1) Selective reporting with respect to the IV (3, 5, 10 groups). Each group has two levels and a t test is computed between the two levels
+##(i.e., control vs test). A comparison is reported only if it is significant.
+##2) Selective reporting with respect to the DV (3, 5, 10 variables). Data for each DV exists for each group. Thus, if there are 3 groups and 3 DVs,
+##then data for each DV provides data for 3 groups (i.e., 3 t-tests), meaning a total of 9 t-tests are computed.
+##3) Correlation among DVs (0.16; average correlation in I-O psychology).
+##4) Correlation among IV levels (0.16; average correlation in I-O psychology). Correlation between IVs would zero, otherwise they would cease to be independent.
+##for the desired number of variables.
+##5) Cell size (n = {20, 30, 50, 100, 200, 500}).
+##4) Optional stopping (N_add = 5, 10)
+
+## Additional conditions to simulate under
+##1) Missing data (missing not at random: the probability that a value is missing depends on the missing data value themselves) For example, probability of
+##response decreases with value on variable. Manipulate percentages to be 10%, 30%, and 50% (see Peugh & Enders, 2004). Mean percentage of missing data was 7.60%, with average of
+##7.09% in cross-sectional designs and 9.78% in longitudinal designs.
+##2) Measurement error
+
+##Measurement of false positive rate.
+##First, understand that the false positive rate is a measure of incidence in a family of tests. A family of tests is determined by the factors that
+##manipulated. For example, if there are 3 groups and three DVs, then a family of tests would contains 9 t tests. If any of these tests returns
+##significant, then the
+#False positive rate: proportion of
+
+##P-value selection method
+##1) First significant
+##2) Smallest p-value
+
+
+
+scores <- generate_data(num_dvs = 2, num_ivs = 2, sample_size = 50)
+
+scores <- generate_dv_data(covar = covar, sample_size = 50)
+scores_up <- scores %>% unite(col = 'dv_iv', 'dv':'iv', sep = '_') %>%  mutate_if(.predicate = is.character, .funs = factor)
+
+for (cond in levels(scores_up$dv_iv)) {
+
+  control_data <- scores_up %>% filter(dv_iv == cond, condition == 'control') %>% pull(value)
+  test_data <- scores_up %>% filter(dv_iv == cond, condition == 'test') %>% pull(value)
+
+  print(t.test(x = control_data, y = test_data)$p.value)
+}
+
+
+```
