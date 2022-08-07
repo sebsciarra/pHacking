@@ -16,8 +16,9 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(easypackages)
-packages <- c('tidyverse', 'MASS')
+packages <- c('tidyverse', 'MASS', 'devtools', 'parallel')
 libraries(packages)
+load_all()
 ```
 
 
@@ -53,20 +54,21 @@ libraries(packages)
 ##1) First significant
 ##2) Smallest p-value
 
+num_iterations <- 10
+param_list <- list(num_dvs = 2, 
+                   num_ivs = 2, 
+                   sample_size = 50, 
+                   dv_cor = 0.16, 
+                   iv_cor = 0, 
+                   sd = 15)
+
+run_mult_simulations(num_iterations, param_list, seed = 27, num_cores = 3)
+
+#familywise error rate  = 1 – (1-alpha)^n
 
 
-scores <- generate_data(num_dvs = 2, num_ivs = 2, sample_size = 50)
+1 -(1-0.05)^4
 
-scores <- generate_dv_data(covar = covar, sample_size = 50)
-scores_up <- scores %>% unite(col = 'dv_iv', 'dv':'iv', sep = '_') %>%  mutate_if(.predicate = is.character, .funs = factor)
-
-for (cond in levels(scores_up$dv_iv)) {
-
-  control_data <- scores_up %>% filter(dv_iv == cond, condition == 'control') %>% pull(value)
-  test_data <- scores_up %>% filter(dv_iv == cond, condition == 'test') %>% pull(value)
-
-  print(t.test(x = control_data, y = test_data)$p.value)
-}
 
 
 ```

@@ -4,13 +4,65 @@
 #' @param y A number.
 #' @return The sum of `x` and `y`.
 #' @examples
-#' add(1, 1)
-generate_data <- function(num_dvs, num_ivs, sd = 15, dv_cor = 0.16, iv_cor = 0.16, sample_size) {
+#'
+run_mult_simulations <- function(num_iterations, seed,  param_list, num_cores = 3) {
 
-  create_covar(num_dvs, num_ivs, sd = sd, dv_cor, iv_cor)
+  #ensure reproducibility
+  set.seed(seed)
+  RNGkind("L'Ecuyer-CMRG")
+
+  #progress bar settings
+  progress_bar <- progressBar(min = 1, max = num_iterations, initial = 1, style = "ETA")
+
+    p_values_list <- pbmclapply(X = 1:num_iterations, FUN = run_ind_simulation,
+                            num_dvs = param_list$num_dvs,
+                            num_ivs = param_list$num_ivs,
+                            sample_size = param_list$sample_size,
+                            dv_cor = param_list$dv_cor,
+                            iv_cor = param_list$iv_cor,
+                            sd = param_list$sd,
+                            mc.cores = num_cores, mc.set.seed = TRUE, mc.substyle = progress_bar)
+
+  #count the number of family comparisons that had at least one p value < .05
+  p_value_counts <- lapply(p_values_list, function(x) length(which(x < .05)))
+
+  false_positive_rate <- sum(p_value_counts >= 1)/num_iterations
+
+  return(false_positive_rate)
+}
+
+run_ind_simulation <- function(num_iterations, num_dvs, num_ivs, sample_size, dv_cor, iv_cor,  sd) {
+
+  #generate data
+  scores <- generate_data(num_dvs = num_dvs, num_ivs = num_ivs,
+                           sd = sd, dv_cor = dv_cor, iv_cor = iv_cor, sample_size = sample_size)
+
+  scores_comb <- scores %>%
+    unite(col = 'dv_iv', 'dv':'iv', sep = '_') %>%
+    mutate_if(.predicate = is.character, .funs = factor)
+
+  #compute all t_tests
+  p_values <- unlist(lapply(unique(scores_comb$dv_iv), FUN = compute_t_test, scores_comb = scores_comb))
+
+  return(p_values)
+}
+
+compute_t_test <- function(cond, scores_comb) {
+
+  control_data <- scores_comb %>% filter(dv_iv == cond, condition == 'control') %>% pull(value)
+  test_data <- scores_comb %>% filter(dv_iv == cond, condition == 'test') %>% pull(value)
+
+  p_value <- t.test(x = control_data, y = test_data)$p.value
+
+  return(p_value)
+}
+
+generate_data <- function(num_dvs, num_ivs, sd = 15, dv_cor = 0.16, iv_cor = 0, sample_size) {
+
+  covar <- create_covar(num_dvs, num_ivs, sd = sd, dv_cor, iv_cor)
 
   #generate scores and set appropriate column names
-  data_long <- data.frame(mvrnorm(n = sample_size, mu = rep(100, times = nrow(covar)), Sigma = covar, empirical = F))
+  data_long <- data.frame(mvrnorm(n = sample_size, mu = rep(100, times = nrow(covar)), Sigma = covar, empirical = F ))
   colnames(data_long) <- colnames(covar)
 
   data_wide <- data_long %>%
@@ -28,8 +80,7 @@ create_covar <- function(num_dvs, num_ivs, sd = 15, dv_cor = .16, iv_cor = .16) 
 
   return(filled_covar)
 }
-
-fill_covar <- function(empty_covar, sd = 15, dv_cor = .16, iv_cor = .16 ) {
+fill_covar <- function(empty_covar, sd, dv_cor, iv_cor) {
 
   #set covariances (i.e., correlations) between dependent variables (look for rownames in each columns with different dv name)
   #and independent variables (look for rownames in each columns with different iv name)
