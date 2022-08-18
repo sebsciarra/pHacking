@@ -3,5 +3,4 @@
 #' @param x A number.
 #' @param y A number.
 #' @return The sum of `x` and `y`.
-#' @examples
-#'
+#' @export

@@ -3,7 +3,7 @@
 #' @param x A number.
 #' @param y A number.
 #' @return The sum of `x` and `y`.
-#' @examples
+#' @export
 run_mult_simulations <- function(num_iterations, seed,  param_list, num_cores = 3) {
 
   #ensure reproducibility
