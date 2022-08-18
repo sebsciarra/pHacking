@@ -14,7 +14,8 @@ Imports:
     MASS, 
     tidyverse, 
     parallel, 
-    pbmcapply
+    pbmcapply,
+    data.table
 Suggests: 
     knitr,
     rmarkdown,

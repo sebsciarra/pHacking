@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(easypackages)
-packages <- c('tidyverse', 'MASS', 'devtools', 'parallel')
+packages <- c('tidyverse', 'MASS', 'devtools', 'parallel', 'pbmcapply', 'data.table')
 libraries(packages)
 load_all()
 ```
@@ -28,15 +28,18 @@ load_all()
 #sex, race, SES, attachment style, etc. Thus, there is an ample opportunity to conduct pairwise comparisons in an uncontrolled manner.
 
 #Factors to simulate:
-##1) Selective reporting with respect to the IV (3, 5, 10 groups). Each group has two levels and a t test is computed between the two levels
+##1) Cell size: 30, 50, 100, 300, 500
+##2) Selective reporting with respect to the IV (3, 5, 10 groups). Each group has two levels and a t test is computed between the two levels
 ##(i.e., control vs test). A comparison is reported only if it is significant.
-##2) Selective reporting with respect to the DV (3, 5, 10 variables). Data for each DV exists for each group. Thus, if there are 3 groups and 3 DVs,
+##3) Selective reporting with respect to the DV (3, 5, 10 variables). Data for each DV exists for each group. Thus, if there are 3 groups and 3 DVs,
 ##then data for each DV provides data for 3 groups (i.e., 3 t-tests), meaning a total of 9 t-tests are computed.
-##3) Correlation among DVs (0.16; average correlation in I-O psychology).
-##4) Correlation among IV levels (0.16; average correlation in I-O psychology). Correlation between IVs would zero, otherwise they would cease to be independent.
+##4) Correlation among DVs (0.16; average correlation in I-O psychology).
+##5) Correlation among IV levels (0.16; average correlation in I-O psychology). Correlation between IVs would zero, otherwise they would cease to be independent.
 ##for the desired number of variables.
-##5) Cell size (n = {20, 30, 50, 100, 200, 500}).
-##4) Optional stopping (N_add = 5, 10)
+##6) Optional stopping (N_add = 5, 10, 50) with Nmax = {30, 50, 100, 300, 500} 
+##7) Variable transformations (logarithmic, reciprocal, square root transformation) on DV, predictor, or both. 
+##8) Missing data (MCAR or MNAR with percentages of 10%, 30%, and 50% (see Peugh & Enders, 2004). 
+
 
 ## Additional conditions to simulate under
 ##1) Missing data (missing not at random: the probability that a value is missing depends on the missing data value themselves) For example, probability of
@@ -54,21 +57,39 @@ load_all()
 ##1) First significant
 ##2) Smallest p-value
 
-num_iterations <- 10
-param_list <- list(num_dvs = 2, 
-                   num_ivs = 2, 
-                   sample_size = 50, 
-                   dv_cor = 0.16, 
-                   iv_cor = 0, 
-                   sd = 15)
+#Optional stopping
+##Simulated by adding the desired number of data points and repeating the transaction. The new list of p_values are added to the current one. The 
+##procedure is repeated until the maximum sample is obtained. Optional stopping will be manipulated by using a more realistic manipulation than used in 
+## Stefan et al. (2022). Nmax = {30, 50, 100, 250, 500} and step size = {10, 25, or 50}. 
 
-run_mult_simulations(num_iterations, param_list, seed = 27, num_cores = 3)
+#Covariates
+##Simulated by computing bivariate regression and then adding covariates one at a time. Number of covariates = {3, 5, 10}. Correlation of covariates is .16 or .30. 
 
-#familywise error rate  = 1 – (1-alpha)^n
+#Transformations
+###Simulated by using logarithmic, reciprocal, and square root transformations on DV, predictor, or both. 
 
+#Discretizing variables
+##Simulated by conducting median split on continuous variable or cut-the-middle split. 
 
-1 -(1-0.05)^4
+#Missing data
+##Simulated by having data be MCAR or MNAR for 10, 30, or 50% of the data. 
 
+#for each sample size increment, generate a data set with that many data poins 
+sim_params <- list('step_size' = c(10),
+               'n_min' = 10, 
+               'n_max' = c(50, 60),# 100, 200, 300), 
+               'num_dvs' = 1, 
+               'num_ivs' = 1)
+
+sim_data <- run_exp_simulations(sim_params = sim_params, num_iterations = 3, num_cores = 3, seed = 27)
+sim_data$false_pos_exist <- sapply(X = 1:nrow(sim_data), FUN = false_pos_exist, sim_data = sim_data)
+
+generate
 
 
 ```
+
+
+
+
+

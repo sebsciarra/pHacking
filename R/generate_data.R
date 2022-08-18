@@ -37,20 +37,16 @@ run_ind_simulation <- function(num_iterations, num_dvs, num_ivs, sample_size, dv
   scores <- generate_data(num_dvs = num_dvs, num_ivs = num_ivs,
                            sd = sd, dv_cor = dv_cor, iv_cor = iv_cor, sample_size = sample_size)
 
-  scores_comb <- scores %>%
-    unite(col = 'dv_iv', 'dv':'iv', sep = '_') %>%
-    mutate_if(.predicate = is.character, .funs = factor)
-
   #compute all t_tests
-  p_values <- unlist(lapply(unique(scores_comb$dv_iv), FUN = compute_t_test, scores_comb = scores_comb))
+  p_values <- sapply(unique(scores$dv_iv), FUN = compute_t_test, scores = scores)
 
   return(p_values)
 }
 
-compute_t_test <- function(cond, scores_comb) {
+compute_t_test <- function(cond, scores) {
 
-  control_data <- scores_comb %>% filter(dv_iv == cond, condition == 'control') %>% pull(value)
-  test_data <- scores_comb %>% filter(dv_iv == cond, condition == 'test') %>% pull(value)
+  control_data <- scores %>% filter(dv_iv == cond, condition == 'control') %>% pull(value)
+  test_data <- scores %>% filter(dv_iv == cond, condition == 'test') %>% pull(value)
 
   p_value <- t.test(x = control_data, y = test_data)$p.value
 
@@ -62,7 +58,7 @@ generate_data <- function(num_dvs, num_ivs, sd = 15, dv_cor = 0.16, iv_cor = 0, 
   covar <- create_covar(num_dvs, num_ivs, sd = sd, dv_cor, iv_cor)
 
   #generate scores and set appropriate column names
-  data_long <- data.frame(mvrnorm(n = sample_size, mu = rep(100, times = nrow(covar)), Sigma = covar, empirical = F ))
+  data_long <- data.frame(mvrnorm(n = sample_size, mu = rep(100, times = nrow(covar)), Sigma = covar, empirical = F))
   colnames(data_long) <- colnames(covar)
 
   data_wide <- data_long %>%
@@ -70,7 +66,12 @@ generate_data <- function(num_dvs, num_ivs, sd = 15, dv_cor = 0.16, iv_cor = 0, 
     separate(col = 'name', into = c('dv', 'iv', 'condition'), sep = '_') %>%
     mutate_if(.predicate = is.character, .funs = factor)
 
-  return(data_wide)
+  #combine condition info into one column
+  scores <- data_wide %>%
+    unite(col = 'dv_iv', 'dv':'iv', sep = '_') %>%
+    mutate_if(.predicate = is.character, .funs = factor)
+
+  return(scores)
 }
 
 create_covar <- function(num_dvs, num_ivs, sd = 15, dv_cor = .16, iv_cor = .16) {
