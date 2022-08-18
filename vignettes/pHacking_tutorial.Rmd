@@ -80,7 +80,6 @@ sim_params <- list('step_size' = c(10),
                'n_max' = c(50, 60),# 100, 200, 300), 
                'num_dvs' = 1, 
                'num_ivs' = 1)
-
 sim_data <- run_exp_simulations(sim_params = sim_params, num_iterations = 3, num_cores = 3, seed = 27)
 sim_data$false_pos_exist <- sapply(X = 1:nrow(sim_data), FUN = false_pos_exist, sim_data = sim_data)
 
