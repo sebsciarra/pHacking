@@ -3,7 +3,6 @@
 #' @param x A number.
 #' @param y A number.
 #' @return The sum of `x` and `y`.
-#' @examples
 run_exp_simulations <- function(sim_params, num_iterations, num_cores, seed){
 
   #determine all experimental conditions
