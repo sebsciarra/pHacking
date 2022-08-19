@@ -4,7 +4,7 @@
 \alias{run_exp_simulations}
 \title{Simulations optional stopping.}
 \usage{
-run_exp_simulations(sim_params, num_iterations, num_cores, seed)
+run_exp_simulations(sim_params, num_iterations, num_cores, seed, step_size = T)
 }
 \arguments{
 \item{x}{A number.}

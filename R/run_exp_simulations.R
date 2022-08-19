@@ -4,13 +4,12 @@
 #' @param y A number.
 #' @return The sum of `x` and `y`.
 #' @export
-run_exp_simulations <- function(sim_params, num_iterations, num_cores, seed){
-
-  #determine all experimental conditions
-  cells <- expand.grid(sim_params)
+run_exp_simulations <- function(sim_params, num_iterations, num_cores, seed, step_size = T){
 
   RNGkind("L'Ecuyer-CMRG")
   set.seed(seed)
+
+  cells <- determine_cells(sim_params, step_size = step_size)
 
   #progress bar settings
   progress_bar <- progressBar(min = 1, initial = 0, max = num_iterations, style = "ETA")
@@ -37,6 +36,21 @@ run_exp_simulations <- function(sim_params, num_iterations, num_cores, seed){
   return(sim_results)
 }
 
+determine_cells <- function(sim_params, step_size) {
+
+  #compute all possible experimental cells
+  cells <- expand.grid(sim_params)
+
+  #remove rows where n_min > n_max  (impossible conditions)
+  cells <- cells[!cells$n_min > cells$n_max, ]
+
+  #select rows (i.e., cells) where n_max = n_min
+  if (step_size == F) {
+    cells <- cells [cells$n_min == cells$n_max, ]
+  }
+
+  return(cells)
+}
 
 optional_stopping <- function(num_iterations, step_size, n_min, n_max, num_dvs, num_ivs) {
 
