@@ -79,8 +79,9 @@ sim_params <- list('step_size' = 10,
                    'n_min' = c(30, 50, 100, 300), 
                    'n_max' = c(30, 50, 100, 300), 
                    'num_dvs' = c(3, 5, 10), 
-                   'num_ivs' = 1)
-
+                   'num_ivs' = 1, 
+                   'dv_cor' = c(0, 0.3, 0.8), 
+                   'iv_cor' = 0)
 
 
 sim_data <- run_exp_simulations(sim_params = sim_params, num_iterations = 3, num_cores = 3, seed = 27, step_size =F )

@@ -25,6 +25,8 @@ run_exp_simulations <- function(sim_params, num_iterations, num_cores, seed, ste
                               n_max = cells$n_max[cell],
                               num_dvs = cells$num_dvs[cell],
                               num_ivs = cells$num_ivs[cell],
+                              dv_cor = cells$dv_cor[cell],
+                              iv_cor = cells$iv_cor[cell],
                               mc.cores = num_cores, mc.set.seed = TRUE, mc.substyle = progress_bar)
 
     sim_results_list[[cell]] <- rbindlist(l = results, use.names = T, fill = T)
@@ -52,7 +54,7 @@ determine_cells <- function(sim_params, step_size) {
   return(cells)
 }
 
-optional_stopping <- function(num_iterations, step_size, n_min, n_max, num_dvs, num_ivs) {
+optional_stopping <- function(num_iterations, step_size, n_min, n_max, num_dvs, num_ivs, dv_cor, iv_cor) {
 
   if (n_min > n_max) {
     stop('n_min must be greater than n_max')
@@ -66,7 +68,8 @@ optional_stopping <- function(num_iterations, step_size, n_min, n_max, num_dvs, 
 
   for (increment in sample_size_increments) {
 
-    new_data <- generate_data(num_dvs = num_dvs, num_ivs = num_ivs, sample_size = increment)
+    new_data <- generate_data(num_dvs = num_dvs, num_ivs = num_ivs, sample_size = increment,
+                              dv_cor = dv_cor, iv_cor = iv_cor)
 
     #add it to current data
     updated_data <- rbind(updated_data, new_data)
@@ -82,6 +85,8 @@ optional_stopping <- function(num_iterations, step_size, n_min, n_max, num_dvs, 
                     'n_max' = n_max,
                     'num_dvs' = num_dvs,
                     'num_ivs' = num_ivs,
+                    'dv_cor' = dv_cor,
+                    'iv_cor' = iv_cor,
                     'p_values' = list(p_values)))
 }
 
