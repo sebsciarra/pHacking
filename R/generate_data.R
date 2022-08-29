@@ -54,9 +54,9 @@ compute_t_test <- function(cond, scores) {
 
 generate_data <- function(num_dvs, num_ivs, sd = 15, dv_cor = 0.16, iv_cor = 0, sample_size) {
 
-  covar <- create_covar(num_dvs, num_ivs, sd = sd, dv_cor, iv_cor)
+  covar <- create_covar(num_dvs = num_dvs, num_ivs, sd = sd, dv_cor = dv_cor, iv_cor = iv_cor)
 
-  #generate scores and set appropriate column names
+    #generate scores and set appropriate column names
   data_long <- data.frame(mvrnorm(n = sample_size, mu = rep(100, times = nrow(covar)), Sigma = covar, empirical = F))
   colnames(data_long) <- colnames(covar)
 
@@ -73,48 +73,61 @@ generate_data <- function(num_dvs, num_ivs, sd = 15, dv_cor = 0.16, iv_cor = 0, 
   return(scores)
 }
 
-create_covar <- function(num_dvs, num_ivs, sd = 15, dv_cor = .16, iv_cor = .16) {
+create_covar <- function(num_dvs, num_ivs, sd = 15, dv_cor = .16, iv_cor = 0) {
 
-  empty_covar <- create_empty_covar(num_dvs, num_ivs)
-  filled_covar <- fill_covar(empty_covar, sd, dv_cor, iv_cor)
+  empty_covar <- create_empty_covar(num_dvs = num_dvs, num_ivs = num_ivs)
+  filled_covar <- fill_covar(empty_covar = empty_covar, sd = sd, dv_cor = dv_cor,iv_cor =  iv_cor)
 
   return(filled_covar)
 }
-fill_covar <- function(empty_covar, sd, dv_cor, iv_cor) {
 
-  #set covariances (i.e., correlations) between dependent variables (look for rownames in each columns with different dv name)
-  #and independent variables (look for rownames in each columns with different iv name)
-  empty_covar <- fill_dv_iv_covars(empty_covar, dv_cor, iv_cor, sd)
-  diag(empty_covar) <- sd*sd
+fill_covar <- function(empty_covar, dv_cor, iv_cor, sd) {
 
-  #fill in remaining NA cells with diagonal values (i.e., because there is no actual difference between the control and test conditions,
-  #the covariance between the control and test group for each IV under a given DV) is simply the variance
-  empty_covar[is.na(empty_covar)] <- iv_cor*sd*sd
+  num_rows <- nrow(empty_covar)
+  col_names <- colnames(empty_covar)
 
-  return(empty_covar)
+  #fill empty_covar by column
+  covar_list <- lapply(X = 1:num_rows, FUN = fill_empty_covar_col, empty_covar = empty_covar, dv_cor = 0.16, iv_cor = 0, sd = 15)
+  covar <- matrix(unlist(covar_list), nrow =num_rows, ncol = num_rows, dimnames = list(col_names, col_names))
+
+  #fill diagonal values with sd*sd
+  diag(covar) <- sd*sd
+
+  #fill NA cells with 0
+  covar[is.na(covar)] <- 0
+
+  return(covar)
 }
 
-fill_dv_iv_covars <- function(empty_covar, dv_cor, iv_cor, sd) {
+fill_empty_covar_col <- function(col_number, empty_covar, dv_cor, iv_cor, sd) {
 
-  for (col_number in 1:ncol(empty_covar)) {
+  #find rowname that does not match on dv number and matches on all other content in column nam
+  ##? matches zero or one occurence of regular expression
+  ##(?<={pattern}) positive lookbehind assertion, it tests whether the currently matched string is preceded by a string matching {pattern}.
+  dv_name_to_avoid <- str_extract(colnames(empty_covar)[col_number], pattern = "[^*_]+") #extract all content before first underscore
+  iv_name_to_match <- str_extract(colnames(empty_covar)[col_number], pattern = "(?<=_)(.*?)(?=_)") #extract all content between two underscores
+  level_name_to_match <- ifelse(test = str_detect(string = colnames(empty_covar)[col_number], pattern = 'control'),
+                                yes = 'control', no = 'test')
 
-    dv_name_to_avoid <- str_extract(colnames(empty_covar)[col_number], pattern = "[^_]+")
-    iv_name_to_avoid <- str_extract(colnames(empty_covar)[col_number], pattern = "(?<=_)(.*?)(?=_)")
+  #dv_cor:  mismatch on dv and match on iv and level name
+  dv_cor_rows <- !str_detect(string = rownames(empty_covar), pattern = dv_name_to_avoid) &
+    str_detect(string = rownames(empty_covar), pattern = paste(iv_name_to_match, level_name_to_match, sep = '_'))
 
-    #create index of row values to modify in specific column; find that do not contain dv_name and iv_name
-    dv_row_values <-  !str_detect(string = rownames(empty_covar), pattern = dv_name_to_avoid)
-    iv_row_values <-  !str_detect(string = rownames(empty_covar), pattern = iv_name_to_avoid)
+  #fiv_cor: mismatch on iv and match on dv and level name
+  iv_cor_rows <- !str_detect(string = rownames(empty_covar), pattern = iv_name_to_match) &
+    str_detect(string = rownames(empty_covar), pattern = dv_name_to_avoid) &
+    str_detect(string = rownames(empty_covar), pattern = level_name_to_match)
 
-    dv_row_values[col_number] <- FALSE #ensures diagonal value will not be overwritten
-    iv_row_values[col_number] <- FALSE #ensures diagonal value will not be overwritten
+  #dv_row_values[col_number] <- FALSE #ensures diagonal value will not be overwritten
+  #iv_row_values[col_number] <- FALSE #ensures diagonal value will not be overwritten
 
-    #fill cells with appropriate covariances
-    empty_covar[dv_row_values, col_number] <- dv_cor*sd*sd
-    empty_covar[iv_row_values, col_number] <- 0
-  }
+  #fill cells with appropriate covariances
+  empty_covar[dv_cor_rows, col_number] <- dv_cor*sd*sd
+  empty_covar[iv_cor_rows, col_number] <- iv_cor*sd*sd
 
-  return(empty_covar)
+  return(empty_covar[ ,col_number])
 }
+
 
 create_empty_covar <- function(num_dvs, num_ivs){
 

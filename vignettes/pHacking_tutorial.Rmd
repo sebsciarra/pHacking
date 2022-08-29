@@ -14,13 +14,31 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r setup}
+```{r setup, echo=F}
 library(easypackages)
 packages <- c('tidyverse', 'MASS', 'devtools', 'parallel', 'pbmcapply', 'data.table')
 libraries(packages)
 load_all()
 ```
 
+```{r load_data, echo=F}
+dv_data <- read_csv(file = 'data/num_dvs_data.csv')
+```
+
+```{r comparison_to_stefan_2022, echo=F}
+sim_params <- list('step_size' = 10,
+                   'n_min' = c(30), #50, 100, 300), 
+                   'n_max' = c(30, 50, 100, 300), 
+                   'num_dvs' = c(3, 5, 10), 
+                   'num_ivs' = 1, 
+                   'dv_cor' = c(0, 0.3, 0.8), 
+                   'iv_cor' = 0)
+
+sim_data <- run_exp_simulations(sim_params = sim_params, num_iterations = 2, 
+                                num_cores = detectCores() - 1, seed = 27, step_size = F)
+
+
+```
 
 ```{r echo=F}
 ##Example: Consider a developmental researcher with an archival data base containing data for several dependent and independent variables. For example,
@@ -84,11 +102,7 @@ sim_params <- list('step_size' = 10,
                    'iv_cor' = 0)
 
 
-sim_data <- run_exp_simulations(sim_params = sim_params, num_iterations = 3, num_cores = 3, seed = 27, step_size =F )
-sim_data$false_pos_exist <- sapply(X = 1:nrow(sim_data), FUN = false_pos_exist, sim_data = sim_data)
-
-
-
+sim_data <- run_exp_simulations(sim_params = sim_params, num_iterations = 5e3, num_cores = 3, seed = 27, step_size = F)
 ```
 
 
