@@ -87,7 +87,7 @@ fill_covar <- function(empty_covar, dv_cor, iv_cor, sd) {
   col_names <- colnames(empty_covar)
 
   #fill empty_covar by column
-  covar_list <- lapply(X = 1:num_rows, FUN = fill_empty_covar_col, empty_covar = empty_covar, dv_cor = 0.16, iv_cor = 0, sd = 15)
+  covar_list <- lapply(X = 1:num_rows, FUN = fill_empty_covar_col, empty_covar = empty_covar, dv_cor = dv_cor, iv_cor = iv_cor, sd = sd)
   covar <- matrix(unlist(covar_list), nrow =num_rows, ncol = num_rows, dimnames = list(col_names, col_names))
 
   #fill diagonal values with sd*sd
@@ -104,26 +104,34 @@ fill_empty_covar_col <- function(col_number, empty_covar, dv_cor, iv_cor, sd) {
   #find rowname that does not match on dv number and matches on all other content in column nam
   ##? matches zero or one occurence of regular expression
   ##(?<={pattern}) positive lookbehind assertion, it tests whether the currently matched string is preceded by a string matching {pattern}.
-  dv_name_to_avoid <- str_extract(colnames(empty_covar)[col_number], pattern = "[^*_]+") #extract all content before first underscore
-  iv_name_to_match <- str_extract(colnames(empty_covar)[col_number], pattern = "(?<=_)(.*?)(?=_)") #extract all content between two underscores
+  dv_name_to_match <- paste(str_extract(colnames(empty_covar)[col_number], pattern = "[^*_]+"), '_', sep = '')  #extract all content before first underscore
+  iv_name_to_match <- paste(str_extract(colnames(empty_covar)[col_number], pattern = "(?<=_)(.*?)(?=_)"), '_', sep = '') #extract all content between two underscores
   level_name_to_match <- ifelse(test = str_detect(string = colnames(empty_covar)[col_number], pattern = 'control'),
                                 yes = 'control', no = 'test')
 
-  #dv_cor:  mismatch on dv and match on iv and level name
-  dv_cor_rows <- !str_detect(string = rownames(empty_covar), pattern = dv_name_to_avoid) &
-    str_detect(string = rownames(empty_covar), pattern = paste(iv_name_to_match, level_name_to_match, sep = '_'))
+  #dv_cor:  match on iv and level name, mismatch on dv_name
+  dv_cor_rows <- !str_detect(string = rownames(empty_covar), pattern = dv_name_to_match) &
+    str_detect(string = rownames(empty_covar), pattern = paste(iv_name_to_match, level_name_to_match, sep = ''))
 
-  #fiv_cor: mismatch on iv and match on dv and level name
-  iv_cor_rows <- !str_detect(string = rownames(empty_covar), pattern = iv_name_to_match) &
-    str_detect(string = rownames(empty_covar), pattern = dv_name_to_avoid) &
-    str_detect(string = rownames(empty_covar), pattern = level_name_to_match)
+  #iv_cor: only set correlations for 'test' cols such that dv_name and level_name are matched on, but not iv_name
+  iv_cor_rows <-  str_detect(string = rownames(empty_covar), pattern = 'test') &
+    str_detect(string = rownames(empty_covar), pattern = dv_name_to_match) & #match on dv
+    !str_detect(string = rownames(empty_covar), pattern = iv_name_to_match) & #mismatch on iv_name
+    str_detect(string = rownames(empty_covar), pattern = level_name_to_match) #match on level name
 
-  #dv_row_values[col_number] <- FALSE #ensures diagonal value will not be overwritten
-  #iv_row_values[col_number] <- FALSE #ensures diagonal value will not be overwritten
+  #in stefan code, 1 control group data is compared with several different treatment levels. Thus, correlation between all control groups
+  #for all IVs has to be 1.
+  ##match on dv and control, mismatch on iv
+  full_cor_rows <-   str_detect(string = rownames(empty_covar), pattern = 'control') &
+    str_detect(string = rownames(empty_covar), pattern = dv_name_to_match) & #match on dv
+    str_detect(string = rownames(empty_covar), pattern = level_name_to_match) & #match on level name
+    !str_detect(string = rownames(empty_covar), pattern = iv_name_to_match)  #mismatch on iv_name
+
 
   #fill cells with appropriate covariances
   empty_covar[dv_cor_rows, col_number] <- dv_cor*sd*sd
   empty_covar[iv_cor_rows, col_number] <- iv_cor*sd*sd
+  empty_covar[full_cor_rows, col_number] <- sd*sd
 
   return(empty_covar[ ,col_number])
 }

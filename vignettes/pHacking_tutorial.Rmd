@@ -19,25 +19,73 @@ library(easypackages)
 packages <- c('tidyverse', 'MASS', 'devtools', 'parallel', 'pbmcapply', 'data.table')
 libraries(packages)
 load_all()
+
+num_dvs_data <- readRDS(file = 'data/num_dvs_data.RData')
 ```
 
-```{r load_data, echo=F}
-dv_data <- read_csv(file = 'data/num_dvs_data.csv')
-```
 
 ```{r comparison_to_stefan_2022, echo=F}
-sim_params <- list('step_size' = 10,
-                   'n_min' = c(30), #50, 100, 300), 
-                   'n_max' = c(30, 50, 100, 300), 
-                   'num_dvs' = c(3, 5, 10), 
+sim_params <- list('step_size' = c(1, 5, 10),
+                   'n_min' = c(1), 
+                   'n_max' = c(30), #, 100, 300), 
+                   'num_dvs' = 1, 
                    'num_ivs' = 1, 
-                   'dv_cor' = c(0, 0.3, 0.8), 
+                   'dv_cor' = 0,
                    'iv_cor' = 0)
 
-sim_data <- run_exp_simulations(sim_params = sim_params, num_iterations = 2, 
-                                num_cores = detectCores() - 1, seed = 27, step_size = F)
+num_iterations <- 1e3
+sim_data <- run_exp_simulations(sim_params = sim_params, num_iterations = 1, 
+                                num_cores = detectCores() - 1, seed = 27, step_size = T)
 
 
+sim_data$false_pos_exist <- unlist(lapply(X = 1:nrow(sim_data), FUN = false_pos_exist, sim_data = sim_data))
+
+sim_data %>% 
+  group_by(n_min, step_size, iv_cor) %>%
+  summarize(false_pos_rate = sum(false_pos_exist)/num_iterations)
+
+sim_data %>% 
+  group_by(n_min, num_dvs, dv_cor) %>%
+  summarize(false_pos_rate = sum(false_pos_exist)/num_iterations)
+```
+
+
+```{r cor_investigation, echo=F}
+#using code from stefan, correlations are only set between the DVs, but the correlations between the levels of the DVs (i.e. ,groups) are 
+#not explicitly set and are a byproduct of the DV correlations 
+
+#nvar: Number of dependent variables in the data frame
+#nobs.group: Vector giving number of observations per group
+# nobs: Number of observations (rows) in the simulated data frame
+#r: Desired correlation between the dependent variables (scalar)
+
+
+nobs.group <- c(1e3, 1e3)
+nvar <- 3
+r <- .30
+
+stefan_data <- gen_stefan_data(npbs.group = nobs.group, nvar = nvar, r = r)
+
+lapply(X = 2:4, FUN = compute_control_test_cor, stefan_data = stefan_data)
+  
+r <- .30
+nobs <- 
+
+.sim.multcor <- function(nobs, nvar, r, mu = 0, sd = 1, missing = 0){
+
+  # set up correlation matrix
+  R <- matrix(rep(r, nvar**2), nrow = nvar)
+  diag(R) <- rep(1, nvar)
+
+  # transposed Cholesky decomposition of correlation matrix
+  U <- t(chol(R))
+
+  # create random noise matrix
+  random.normal <- matrix(stats::rnorm(nvar*nobs, mu, sd), nrow=nvar, ncol=nobs)
+
+  # create raw data from matrix multiplication of U and random noise
+  X <- as.data.frame(t(U %*% random.normal))
+}
 ```
 
 ```{r echo=F}
@@ -92,20 +140,65 @@ sim_data <- run_exp_simulations(sim_params = sim_params, num_iterations = 2,
 #Missing data
 ##Simulated by having data be MCAR or MNAR for 10, 30, or 50% of the data. 
 
-#for each sample size increment, generate a data set with that many data poins 
-sim_params <- list('step_size' = 10,
-                   'n_min' = c(30, 50, 100, 300), 
-                   'n_max' = c(30, 50, 100, 300), 
-                   'num_dvs' = c(3, 5, 10), 
-                   'num_ivs' = 1, 
-                   'dv_cor' = c(0, 0.3, 0.8), 
-                   'iv_cor' = 0)
-
-
-sim_data <- run_exp_simulations(sim_params = sim_params, num_iterations = 5e3, num_cores = 3, seed = 27, step_size = F)
+#for each sample size increment, generate a data set with that many data points ```
+#list containing results from each iteration
 ```
 
+```{r iv_code, echo=F}
 
+#nobs.group Scalar defining number of observations per group
+#' @param nvar Number of independent variables in the data frame
+#' @param r Desired correlation between the independent variables (scalar)
+nvar <- 2
+r <- .30
+nobs.group <- 100
 
+  nobs.group <- rep(nobs.group, 2)
+  # Simulate control group
+  control <- rnorm(nobs.group[1])
 
+  # Simulate multiple experimental groups
+  #ivs <- .sim.multcor(nobs = nobs.group[2], nvar = nvar, r = r)
+
+  nobs <-  nobs.group[2]
+ 
+  # set up correlation matrix
+  R <- matrix(rep(r, nvar**2), nrow = nvar)
+  diag(R) <- rep(1, nvar)
+
+  # transposed Cholesky decomposition of correlation matrix
+  U <- t(chol(R))
+
+  # create random noise matrix
+  random.normal <- matrix(stats::rnorm(nvar*nobs, 0, 1), nrow=nvar, ncol=nobs)
+
+  # create raw data from matrix multiplication of U and random noise
+  ivs <- as.data.frame(t(U %*% random.normal))
+  
+   df <- cbind(control, ivs)
+  
+#' @param df Data frame (wide format) containing a control group variable and multiple treatment group variables
+#' @param ivs Location of the independent variables (treatment groups) in the (wide) data frame
+#' @param control Location of the control group in the (wide) data frame
+#' @param strategy String value: One out of "firstsig", "smallest", "smallest.sig"
+#' @param alternative Direction of the t-test ("two.sided", "less", "greater")
+#' @param alpha Significance level of the t-test (default: 0.05)
+#' @importFrom stats t.test
+
+  multIVhack <- function(df, ivs, control, strategy = "firstsig", alternative = "two.sided", alpha = 0.05){
+
+  treatm <- df[, 2:4]
+  control <- df[, 1]
+
+  # Prepare dataset
+  mod <- list()
+  r2s <- rep(NA, length(ivs))
+
+  # Compute t-tests
+  for(i in 1:length(ivs)){
+    mod[[i]] <- stats::t.test(control, treatm[,i], var.equal = TRUE, alternative = alternative)
+    r2s[i] <- .compR2t(control, treatm[,i])
+  }
+
+```
 
