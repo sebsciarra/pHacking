@@ -25,28 +25,33 @@ num_dvs_data <- readRDS(file = 'data/num_dvs_data.RData')
 
 
 ```{r comparison_to_stefan_2022, echo=F}
-sim_params <- list('step_size' = c(1, 5, 10),
-                   'n_min' = c(1), 
+sim_params <- list('step_size' = c(1, 3, 5), 
+                   'n_min' = c(5), 
                    'n_max' = c(30), #, 100, 300), 
                    'num_dvs' = 1, 
                    'num_ivs' = 1, 
                    'dv_cor' = 0,
                    'iv_cor' = 0)
 
-num_iterations <- 1e3
-sim_data <- run_exp_simulations(sim_params = sim_params, num_iterations = 1, 
-                                num_cores = detectCores() - 1, seed = 27, step_size = T)
 
+num_iterations <- 1e3
+sim_data <- run_exp_simulations(sim_params = sim_params, num_iterations = num_iterations, 
+                                num_cores = detectCores() - 1, seed = 27, step_size = T)
 
 sim_data$false_pos_exist <- unlist(lapply(X = 1:nrow(sim_data), FUN = false_pos_exist, sim_data = sim_data))
 
 sim_data %>% 
-  group_by(n_min, step_size, iv_cor) %>%
+  group_by(step_size, n_max) %>%
   summarize(false_pos_rate = sum(false_pos_exist)/num_iterations)
 
 sim_data %>% 
   group_by(n_min, num_dvs, dv_cor) %>%
   summarize(false_pos_rate = sum(false_pos_exist)/num_iterations)
+
+
+
+ssize <- optional_stopping(num_iterations = 1, step_size = 1, n_min = 5, n_max = 30, num_dvs = 1, num_ivs = 1, dv_cor = 0, iv_cor = 0)
+ssize$p_values
 ```
 
 
